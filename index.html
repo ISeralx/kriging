@@ -13,12 +13,12 @@
     -webkit-font-smoothing:antialiased;overflow-x:hidden;
     background-image:radial-gradient(1100px 560px at 74% -12%,rgba(140,91,255,.06),transparent 60%);}
   .wrap{max-width:1080px;margin:0 auto;padding:56px 26px 90px}
-  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim)}
-  h1{font-weight:600;letter-spacing:-.02em;font-size:clamp(34px,6vw,60px);line-height:1.02;margin:14px 0 0}
-  .lead{color:var(--dim);font-size:16.5px;max-width:66ch;margin:20px 0 0}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim);text-align:center}
+  h1{font-weight:600;letter-spacing:-.02em;font-size:clamp(34px,6vw,60px);line-height:1.02;margin:14px 0 0;text-align:center}
+  .lead{color:var(--dim);font-size:16.5px;max-width:64ch;margin:20px auto 0;text-align:center}
   .lead em{color:var(--violet);font-style:normal} .lead strong{color:var(--ink);font-weight:600}
-  .plain{margin:20px 0 0;padding:16px 18px;border:1px solid var(--line);border-radius:11px;background:linear-gradient(180deg,var(--panel),transparent);
-    font-size:15.5px;color:#C7CBD1;max-width:74ch}
+  .plain{margin:24px auto 0;padding:17px 20px;border:1px solid var(--line);border-radius:11px;background:linear-gradient(180deg,var(--panel),transparent);
+    font-size:15.5px;color:#C7CBD1;max-width:72ch}
   .plain b{color:var(--ink);font-weight:600} .plain .hi{color:var(--amber)}
   .stage{margin-top:30px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(180deg,var(--panel),transparent);overflow:hidden}
   canvas{display:block;width:100%;touch-action:none;background:#05060a}
@@ -30,6 +30,7 @@
   .ro:last-child{border-right:0}
   .ro .k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
   .ro .v{font-family:var(--mono);font-size:19px;margin-top:5px;font-variant-numeric:tabular-nums}
+  .ro .co{font-family:var(--mono);font-size:10.5px;color:var(--dim-2);margin-top:3px;letter-spacing:.02em;font-variant-numeric:tabular-nums}
   .controls{display:flex;flex-wrap:wrap;gap:20px 30px;padding:20px 22px;border-top:1px solid var(--line);align-items:center}
   .ctl{display:flex;flex-direction:column;gap:9px;min-width:210px;flex:1 1 210px}
   .ctl .lab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
@@ -51,7 +52,7 @@
   .how .c h3{font-size:13px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px}
   .how .c.a h3{color:var(--amber)} .how .c.b h3{color:var(--green)} .how .c.c h3{color:var(--violet)}
   .how .c p{margin:0;color:var(--dim);font-size:14px} .how .c p b{color:var(--ink);font-weight:600}
-  footer{margin-top:44px;font-family:var(--mono);font-size:12px;color:var(--dim);letter-spacing:.06em}
+  footer{margin-top:44px;font-family:var(--mono);font-size:12px;color:var(--dim);letter-spacing:.06em;text-align:center}
   footer a{color:var(--violet)}
   @media (prefers-reduced-motion: reduce){*{transition-duration:.01ms!important}}
 </style>
@@ -69,10 +70,10 @@
     <div style="position:relative"><canvas id="cv"></canvas></div>
     <div class="verdict" id="verdict"></div>
     <div class="readouts">
-      <div class="ro"><div class="k">Iteration</div><div class="v" id="r_iter">0</div></div>
-      <div class="ro"><div class="k">Measurements</div><div class="v" id="r_n">0</div></div>
-      <div class="ro"><div class="k">Est. max</div><div class="v" id="r_est" style="color:var(--amber)">—</div></div>
-      <div class="ro"><div class="k">Position error</div><div class="v" id="r_err" style="color:var(--green)">—</div></div>
+      <div class="ro"><div class="k">Iteration</div><div class="v" id="r_iter">0</div><div class="co" id="r_n">0 samples</div></div>
+      <div class="ro"><div class="k">Est. max (μ̂)</div><div class="v" id="r_est" style="color:var(--amber)">—</div><div class="co" id="r_estxy">—</div></div>
+      <div class="ro"><div class="k">True max (hidden)</div><div class="v" id="r_true" style="color:var(--ink)">—</div><div class="co" id="r_truexy">—</div></div>
+      <div class="ro"><div class="k">Position error</div><div class="v" id="r_err" style="color:var(--green)">—</div><div class="co">grid units</div></div>
       <div class="ro"><div class="k">Status</div><div class="v" id="r_st" style="color:var(--dim)">idle</div></div>
     </div>
     <div class="controls">
@@ -288,8 +289,11 @@ function draw(){
 }
 function ui(){
   document.getElementById('r_iter').textContent=iter;
-  document.getElementById('r_n').textContent=SX.length;
+  document.getElementById('r_n').textContent=SX.length+' samples';
   document.getElementById('r_est').textContent=estMax[2].toFixed(3);
+  document.getElementById('r_estxy').textContent='@ ('+Math.round(estMax[0])+', '+Math.round(estMax[1])+')';
+  document.getElementById('r_true').textContent=trueMax[2].toFixed(3);
+  document.getElementById('r_truexy').textContent='@ ('+Math.round(trueMax[0])+', '+Math.round(trueMax[1])+')';
   const err=curErr(); document.getElementById('r_err').textContent=err.toFixed(1);
   const st=document.getElementById('r_st');
   st.textContent=converged?'converged':(running?'searching':'paused');
