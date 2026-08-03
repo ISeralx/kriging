@@ -1,0 +1,333 @@
+<title>Multi-Agent Kriging</title>
+<style>
+  :root{
+    --bg:#06070A; --panel:rgba(255,255,255,.025);
+    --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.16);
+    --ink:#EDEFF2; --dim:#8A9099; --dim-2:#5A616B;
+    --amber:#F2A93B; --blue:#5B9CFF; --green:#35C97A; --red:#E5484D; --violet:#8C5BFF;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;
+    -webkit-font-smoothing:antialiased;overflow-x:hidden;
+    background-image:radial-gradient(1100px 560px at 74% -12%,rgba(140,91,255,.06),transparent 60%);}
+  .wrap{max-width:1080px;margin:0 auto;padding:56px 26px 90px}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim)}
+  h1{font-weight:600;letter-spacing:-.02em;font-size:clamp(34px,6vw,60px);line-height:1.02;margin:14px 0 0}
+  .lead{color:var(--dim);font-size:16.5px;max-width:66ch;margin:20px 0 0}
+  .lead em{color:var(--violet);font-style:normal} .lead strong{color:var(--ink);font-weight:600}
+  .plain{margin:20px 0 0;padding:16px 18px;border:1px solid var(--line);border-radius:11px;background:linear-gradient(180deg,var(--panel),transparent);
+    font-size:15.5px;color:#C7CBD1;max-width:74ch}
+  .plain b{color:var(--ink);font-weight:600} .plain .hi{color:var(--amber)}
+  .stage{margin-top:30px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(180deg,var(--panel),transparent);overflow:hidden}
+  canvas{display:block;width:100%;touch-action:none;background:#05060a}
+  .verdict{padding:14px 22px;font-family:var(--mono);font-size:13.5px;letter-spacing:.02em;border-top:1px solid var(--line);display:none}
+  .verdict.show{display:block}
+  .verdict.ok{color:var(--green)} .verdict.no{color:var(--red)}
+  .readouts{display:flex;flex-wrap:wrap;border-top:1px solid var(--line)}
+  .ro{flex:1 1 110px;padding:13px 18px;border-right:1px solid var(--line)}
+  .ro:last-child{border-right:0}
+  .ro .k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .ro .v{font-family:var(--mono);font-size:19px;margin-top:5px;font-variant-numeric:tabular-nums}
+  .controls{display:flex;flex-wrap:wrap;gap:20px 30px;padding:20px 22px;border-top:1px solid var(--line);align-items:center}
+  .ctl{display:flex;flex-direction:column;gap:9px;min-width:210px;flex:1 1 210px}
+  .ctl .lab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+  .ctl .lab b{color:var(--ink);font-weight:600}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:2px;background:var(--line-2);outline:none;border-radius:2px;cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--ink);border:0;box-shadow:0 0 0 4px rgba(255,255,255,.07);transition:box-shadow .15s}
+  input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 0 7px rgba(140,91,255,.22)}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--ink);border:0}
+  .btns{display:flex;gap:10px;flex-wrap:wrap}
+  button.b{font-family:var(--mono);font-size:12px;letter-spacing:.06em;padding:10px 15px;border-radius:9px;border:1px solid var(--line-2);
+    background:transparent;color:var(--ink);cursor:pointer;transition:.15s}
+  button.b:hover{border-color:var(--violet);color:var(--violet)}
+  button.b.run{border-color:var(--green);color:var(--green)}
+  button.b.run:hover{background:rgba(53,201,122,.1)}
+  button.b.on{background:var(--violet);border-color:var(--violet);color:#06070A;font-weight:600}
+  .how{margin-top:30px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+  @media(max-width:720px){.how{grid-template-columns:1fr}}
+  .how .c{border:1px solid var(--line);border-radius:11px;padding:16px 18px}
+  .how .c h3{font-size:13px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px}
+  .how .c.a h3{color:var(--amber)} .how .c.b h3{color:var(--green)} .how .c.c h3{color:var(--violet)}
+  .how .c p{margin:0;color:var(--dim);font-size:14px} .how .c p b{color:var(--ink);font-weight:600}
+  footer{margin-top:44px;font-family:var(--mono);font-size:12px;color:var(--dim);letter-spacing:.06em}
+  footer a{color:var(--violet)}
+  @media (prefers-reduced-motion: reduce){*{transition-duration:.01ms!important}}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">BSc thesis · interactive demo</div>
+  <h1>Multi-Agent Kriging</h1>
+  <p class="lead">A swarm of agents searches an <strong>unknown field</strong> for its global maximum — building a Gaussian-process (Kriging) model as they go, and balancing <em>curiosity</em> against <em>greed</em>. Move the sliders and watch it think.</p>
+
+  <div class="plain" id="plain">
+    <b>In plain words:</b> imagine hunting for the highest point of a dark, hilly landscape — but you can only feel the ground exactly where you stand. That's the problem here: find the maximum of an unknown field from a handful of point measurements. The engine is <b>Kriging</b> — a Gaussian-process method born in 1950s gold mining, and today standard for mapping <span class="hi">oil &amp; gas reservoirs</span> from sparse wells. Pair it with a swarm that decides where to measure next, and you get how autonomous systems home in on a hidden source: a gas leak, a radiation hotspot, a mineral deposit.
+  </div>
+
+  <div class="stage">
+    <div style="position:relative"><canvas id="cv"></canvas></div>
+    <div class="verdict" id="verdict"></div>
+    <div class="readouts">
+      <div class="ro"><div class="k">Iteration</div><div class="v" id="r_iter">0</div></div>
+      <div class="ro"><div class="k">Measurements</div><div class="v" id="r_n">0</div></div>
+      <div class="ro"><div class="k">Est. max</div><div class="v" id="r_est" style="color:var(--amber)">—</div></div>
+      <div class="ro"><div class="k">Position error</div><div class="v" id="r_err" style="color:var(--green)">—</div></div>
+      <div class="ro"><div class="k">Status</div><div class="v" id="r_st" style="color:var(--dim)">idle</div></div>
+    </div>
+    <div class="controls">
+      <div class="ctl">
+        <div class="lab"><span>Curiosity&nbsp;·&nbsp;b</span><b id="l_b">2.0 · balanced</b></div>
+        <input type="range" id="s_b" min="0" max="3" step="0.1" value="2">
+      </div>
+      <div class="ctl">
+        <div class="lab"><span>Agents&nbsp;·&nbsp;N</span><b id="l_n">3</b></div>
+        <input type="range" id="s_n" min="2" max="8" step="1" value="3">
+      </div>
+      <div class="btns">
+        <button class="b run" id="b_run">▶ run</button>
+        <button class="b" id="b_reset">↻ reset</button>
+        <button class="b" id="b_new">✦ new field</button>
+        <button class="b" id="b_acq">μ+b·σ</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="how">
+    <div class="c a"><h3>Field + agents</h3><p>The true field (hidden from the agents) and the swarm. The dashed ring marks the <b>true global max</b> — where they should end up.</p></div>
+    <div class="c b"><h3>Kriging estimate μ</h3><p>The Gaussian-process reconstruction from the samples. The cross is the <b>estimated</b> max; it snaps to the true peak as evidence accrues.</p></div>
+    <div class="c c"><h3>Uncertainty σ &amp; curiosity</h3><p>Where the model is unsure — it glows unexplored, goes dark where sampled. Raising <b>b</b> pulls agents toward the glow (toggle <b>μ+b·σ</b> to see what they chase).</p></div>
+  </div>
+
+  <footer>A. Soler Gonzálvez — <a href="https://iseralx.github.io/ISeralx/tfg_soler_multiagent_kriging.pdf" target="_blank">read the thesis (PDF)</a></footer>
+</div>
+
+<script>
+"use strict";
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const cv=document.getElementById('cv');
+const MONO='ui-monospace,"SF Mono",Menlo,Consolas,monospace';
+const AMBER='#F2A93B',BLUE='#5B9CFF',GREEN='#35C97A',VIOLET='#8C5BFF',RED='#E5484D',INK='#EDEFF2',DIM='#8A9099',DIM2='#5A616B';
+const ACOL=[AMBER,BLUE,GREEN,VIOLET,RED,'#35C9C9','#F27ABF','#B7F23B'];
+
+const DOM=50, GG=30, GD=150, TH=9.0, NUG=3e-3, NMAX=200, ITMAX=60, STEPS=16, BADERR=3.5;
+const hm=document.createElement('canvas'); let hmDirty=true, lastW=-1;
+function interp(arr,fx,fy){var gu=fx/DOM*(GG-1),gv=fy/DOM*(GG-1);var x0=gu|0,y0=gv|0,x1=x0<GG-1?x0+1:x0,y1=y0<GG-1?y0+1:y0,tx=gu-x0,ty=gv-y0;
+  var a=arr[y0*GG+x0],b=arr[y0*GG+x1],c=arr[y1*GG+x0],d=arr[y1*GG+x1];return (a*(1-tx)+b*tx)*(1-ty)+(c*(1-tx)+d*tx)*ty;}
+function bZone(b){return b<0.05?'greedy · gets stuck':(b<=1?'cautious':(b<=2?'balanced':'curious · maps it all'));}
+
+// ---------- true field ----------
+let PK=[], trueMax=[0,0,1];
+function newField(){
+  const k=2+Math.floor(Math.random()*3); PK=[];
+  for(let i=0;i<k;i++) PK.push([8+Math.random()*34, 8+Math.random()*34, 0.6+Math.random()*0.7, 7+Math.random()*5]);
+  PK[0][2]=1.2;
+  let bx=0,by=0,bv=-1;
+  for(let y=0;y<=DOM;y+=0.5)for(let x=0;x<=DOM;x+=0.5){const v=field(x,y); if(v>bv){bv=v;bx=x;by=y;}}
+  trueMax=[bx,by,bv]; hmDirty=true;
+}
+function field(x,y){let v=0;for(const p of PK){const dx=x-p[0],dy=y-p[1];v+=p[2]*Math.exp(-(dx*dx+dy*dy)/(2*p[3]*p[3]));}return v;}
+
+// ---------- Cholesky GP ----------
+function chol(A,n){const L=[];for(let i=0;i<n;i++)L.push(new Float64Array(n));
+  for(let i=0;i<n;i++)for(let j=0;j<=i;j++){let s=A[i][j];for(let k=0;k<j;k++)s-=L[i][k]*L[j][k];
+    if(i===j){L[i][i]=Math.sqrt(s>1e-10?s:1e-10);}else{L[i][j]=s/L[j][j];}}return L;}
+function cholSolve(L,b,n){const y=new Float64Array(n),x=new Float64Array(n);let i,k,s;
+  for(i=0;i<n;i++){s=b[i];for(k=0;k<i;k++)s-=L[i][k]*y[k];y[i]=s/L[i][i];}
+  for(i=n-1;i>=0;i--){s=y[i];for(k=i+1;k<n;k++)s-=L[k][i]*x[k];x[i]=s/L[i][i];}return x;}
+
+let SX=[],SY=[],Sy=[],seen=new Set();
+let MU=new Float64Array(GG*GG), SIG=new Float64Array(GG*GG);
+let agents=[], iter=0, running=false, converged=false, b=2, N=3, fmaxObs=-1, estMax=[25,25,0], trails=[], errHist=[], showAcq=false, T=0;
+
+function cellKey(x,y){return Math.round(x/DOM*(GG-1))+'_'+Math.round(y/DOM*(GG-1));}
+function addSample(x,y){const key=cellKey(x,y); if(seen.has(key)||SX.length>=NMAX) return; seen.add(key); SX.push(x);SY.push(y);Sy.push(field(x,y));}
+function curErr(){return Math.hypot(estMax[0]-trueMax[0], estMax[1]-trueMax[1]);}
+function fit(){
+  const n=SX.length; if(n===0){MU.fill(0);SIG.fill(1);return;}
+  const K=[];for(let i=0;i<n;i++)K.push(new Float64Array(n));
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++){const dx=SX[i]-SX[j],dy=SY[i]-SY[j];K[i][j]=Math.exp(-(dx*dx+dy*dy)/(2*TH*TH))+(i===j?NUG:0);}
+  const L=chol(K,n);
+  let ym=0;for(let i=0;i<n;i++)ym+=Sy[i];ym/=n;
+  const yc=new Float64Array(n);for(let i=0;i<n;i++)yc[i]=Sy[i]-ym;
+  const alpha=cholSolve(L,yc,n);
+  fmaxObs=Math.max.apply(null,Sy);
+  let em=[0,0,-1e9];
+  for(let gy=0;gy<GG;gy++)for(let gx=0;gx<GG;gx++){
+    const fx=gx/(GG-1)*DOM, fy=gy/(GG-1)*DOM, idx=gy*GG+gx;
+    const ks=new Float64Array(n); let mu=ym;
+    for(let i=0;i<n;i++){const dx=fx-SX[i],dy=fy-SY[i];ks[i]=Math.exp(-(dx*dx+dy*dy)/(2*TH*TH));mu+=ks[i]*alpha[i];}
+    const v=cholSolve(L,ks,n); let s2=1;for(let i=0;i<n;i++)s2-=ks[i]*v[i];
+    MU[idx]=mu; SIG[idx]=Math.sqrt(Math.max(0,s2));
+    if(mu>em[2]){em=[fx,fy,mu];}
+  }
+  estMax=em; hmDirty=true;
+}
+function assignTargets(){
+  const mask=[];
+  for(let gy=0;gy<GG;gy++)for(let gx=0;gx<GG;gx++){const idx=gy*GG+gx;
+    if(seen.has(gx+'_'+gy)) continue;
+    if(MU[idx]+b*SIG[idx] > fmaxObs){ mask.push([gx/(GG-1)*DOM, gy/(GG-1)*DOM, idx]); }}
+  if(mask.length===0){converged=true; return false;}
+  const chosen=[];
+  for(const ag of agents){
+    let best=null,bs=1e18;
+    for(const c of mask){
+      if(chosen.some(t=>t[2]===c[2])) continue;
+      let d=(c[0]-ag.x)**2+(c[1]-ag.y)**2, rep=0;
+      for(const t of chosen) rep+=0.6*((c[0]-t[0])**2+(c[1]-t[1])**2);
+      if(d-rep<bs){bs=d-rep;best=c;}
+    }
+    if(best){ chosen.push(best); ag.sx=ag.x;ag.sy=ag.y;ag.tx=best[0];ag.ty=best[1];ag.mv=0; }
+    else { ag.sx=ag.x;ag.sy=ag.y;ag.tx=ag.x;ag.ty=ag.y;ag.mv=1; }
+  }
+  return true;
+}
+function reset(keepField){
+  if(!keepField && PK.length===0) newField();
+  SX=[];SY=[];Sy=[];seen=new Set();iter=0;converged=false;fmaxObs=-1;trails=[];errHist=[];
+  agents=[];
+  for(let i=0;i<N;i++){
+    const ang=i/N*6.283+0.5, r=19;
+    const x=clamp(25+r*Math.cos(ang),3,47), y=clamp(25+r*Math.sin(ang),3,47);
+    agents.push({x,y,sx:x,sy:y,tx:x,ty:y,mv:1,col:ACOL[i%ACOL.length]});
+    addSample(x,y); trails.push([[x,y]]);
+  }
+  fit(); errHist.push(curErr()); assignTargets(); ui();
+}
+function step(){
+  iter++;
+  for(let i=0;i<agents.length;i++){ addSample(agents[i].x,agents[i].y); }
+  fit(); errHist.push(curErr());
+  if(iter>=ITMAX){converged=true;}
+  if(!converged) assignTargets();
+  ui();
+}
+
+// ---------- palettes ----------
+const FSTOPS=[[0,10,16,32],[.35,28,58,110],[.6,43,122,143],[.8,53,201,122],[1,242,169,59]];
+const SSTOPS=[[0,8,8,16],[.4,60,40,120],[.7,200,90,60],[1,245,220,150]];
+const ASTOPS=[[0,10,10,26],[.45,50,36,110],[.7,120,80,220],[1,190,150,255]];
+function lut(stops,v){for(let i=1;i<stops.length;i++){if(v<=stops[i][0]){const a=stops[i-1],b=stops[i],t=(v-a[0])/((b[0]-a[0])||1);
+  return [a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t,a[3]+(b[3]-a[3])*t];}}return stops[stops.length-1].slice(1);}
+
+function layout(w){const pad=14,gap=12,top=18; const pw=(w-2*pad-2*gap)/3;
+  const panelH=clamp(pw*0.92,120,250), sparkTop=top+panelH+16, sparkH=40, h=sparkTop+sparkH+8;
+  return {pad,gap,top,pw,panelH,sparkTop,sparkH,h,PX:[pad,pad+pw+gap,pad+2*(pw+gap)]};}
+
+function renderHM(w,h,dpr,L,FMAX,smax){
+  hm.width=w*dpr; hm.height=h*dpr; const c=hm.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0);
+  c.clearRect(0,0,w,h);
+  const cwid=L.pw/GD, chh=L.panelH/GD, amax=FMAX+b*smax;
+  function panel(pi,valAt,stops,norm){
+    for(let gy=0;gy<GD;gy++)for(let gx=0;gx<GD;gx++){
+      const fx=gx/(GD-1)*DOM, fy=gy/(GD-1)*DOM;
+      let v=valAt(fx,fy)/norm; if(v<0)v=0; if(v>1)v=1;
+      if(v<0.015)continue; const col=lut(stops,v);
+      c.globalAlpha=Math.min(1,0.10+v*1.1);
+      c.fillStyle='rgb('+(col[0]|0)+','+(col[1]|0)+','+(col[2]|0)+')';
+      c.fillRect(L.PX[pi]+gx*cwid, L.top+(GD-1-gy)*chh, cwid+0.9, chh+0.9);
+    }
+  }
+  panel(0,(fx,fy)=>field(fx,fy),FSTOPS,FMAX);
+  panel(1,(fx,fy)=>interp(MU,fx,fy),FSTOPS,FMAX);
+  if(showAcq) panel(2,(fx,fy)=>interp(MU,fx,fy)+b*interp(SIG,fx,fy),ASTOPS,amax);
+  else        panel(2,(fx,fy)=>interp(SIG,fx,fy),SSTOPS,smax);
+  c.globalAlpha=1;
+}
+function draw(){
+  const w=cv.clientWidth||900, dpr=Math.min(devicePixelRatio||1,2);
+  const L=layout(w), h=L.h;
+  cv.width=w*dpr; cv.height=h*dpr; cv.style.height=h+'px';
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  const FMAX=Math.max(1.3, trueMax[2]);
+  let smax=0; for(let i=0;i<SIG.length;i++) if(SIG[i]>smax)smax=SIG[i]; if(smax<1e-3)smax=1;
+  if(hmDirty || w!==lastW){ renderHM(w,h,dpr,L,FMAX,smax); hmDirty=false; lastW=w; }
+  ctx.clearRect(0,0,w,h); ctx.fillStyle='#05060a'; ctx.fillRect(0,0,w,h);
+  ctx.drawImage(hm,0,0,w,h);
+  const LAB=['FIELD + AGENTS','KRIGING ESTIMATE μ', showAcq?'ACQUISITION μ+b·σ':'UNCERTAINTY σ'];
+  const toPx=(pi,fx,fy)=>[L.PX[pi]+fx/DOM*L.pw, L.top+(1-fy/DOM)*L.panelH];
+  // true global-max ring (panel 0)
+  const bad=converged && curErr()>BADERR;
+  const gm=toPx(0,trueMax[0],trueMax[1]); const pr=bad?(3+Math.sin(T*4)*1.5):0;
+  ctx.strokeStyle=bad?RED:'rgba(255,255,255,.75)';ctx.lineWidth=1.4;ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.arc(gm[0],gm[1],7+pr,0,7);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle=bad?RED:'rgba(255,255,255,.75)';ctx.font='8.5px '+MONO;ctx.textAlign='center';ctx.fillText('global max',gm[0],gm[1]-11-pr);
+  // trails + agents + targets (panel 0)
+  for(let i=0;i<agents.length;i++){
+    const tr=trails[i]||[]; ctx.strokeStyle=agents[i].col;ctx.globalAlpha=.3;ctx.lineWidth=1;ctx.beginPath();
+    for(let s=0;s<tr.length;s++){const q=toPx(0,tr[s][0],tr[s][1]); s?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);}
+    ctx.stroke();ctx.globalAlpha=1;
+    const tg=toPx(0,agents[i].tx,agents[i].ty); ctx.strokeStyle=agents[i].col;ctx.globalAlpha=.5;ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(tg[0],tg[1],3,0,7);ctx.stroke();ctx.globalAlpha=1;
+    const a=toPx(0,agents[i].x,agents[i].y); ctx.beginPath();ctx.arc(a[0],a[1],3.2,0,7);ctx.fillStyle=agents[i].col;ctx.fill();ctx.strokeStyle='#05060a';ctx.lineWidth=1.5;ctx.stroke();
+  }
+  // estimated-max cross (panel 1)
+  const m=toPx(1,estMax[0],estMax[1]); ctx.strokeStyle=INK;ctx.globalAlpha=.9;ctx.lineWidth=1.4;
+  ctx.beginPath();ctx.moveTo(m[0]-4,m[1]);ctx.lineTo(m[0]+4,m[1]);ctx.moveTo(m[0],m[1]-4);ctx.lineTo(m[0],m[1]+4);ctx.stroke();ctx.globalAlpha=1;
+  // frames + labels
+  for(let pi=0;pi<3;pi++){ctx.strokeStyle='rgba(255,255,255,.10)';ctx.lineWidth=1;ctx.strokeRect(L.PX[pi],L.top,L.pw,L.panelH);
+    ctx.fillStyle=DIM;ctx.font='9px '+MONO;ctx.textAlign='left';ctx.fillText(LAB[pi],L.PX[pi]+1,13);}
+  // convergence sparkline (full width strip)
+  const sx=L.pad, sy=L.sparkTop, sw=w-2*L.pad, sh=L.sparkH;
+  ctx.strokeStyle='rgba(255,255,255,.08)';ctx.strokeRect(sx,sy,sw,sh);
+  ctx.fillStyle=DIM;ctx.font='9px '+MONO;ctx.textAlign='left';ctx.fillText('POSITION ERROR  ↓  (over iterations)',sx+4,sy+12);
+  let emax=BADERR; for(const e of errHist) if(e>emax)emax=e; emax*=1.05;
+  const y1=sy+sh-2-(BADERR/emax)*(sh-16); // linea "converge bien"
+  ctx.strokeStyle='rgba(53,201,122,.35)';ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(sx+2,y1);ctx.lineTo(sx+sw-2,y1);ctx.stroke();ctx.setLineDash([]);
+  if(errHist.length>1){
+    ctx.strokeStyle=bad?RED:GREEN;ctx.lineWidth=1.5;ctx.beginPath();
+    for(let i=0;i<errHist.length;i++){const xx=sx+3+i/(errHist.length-1)*(sw-6), yy=sy+sh-2-(errHist[i]/emax)*(sh-16);i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);}
+    ctx.stroke();
+    const lx=sx+3+(sw-6), ly=sy+sh-2-(errHist[errHist.length-1]/emax)*(sh-16);
+    ctx.beginPath();ctx.arc(lx,ly,2.6,0,7);ctx.fillStyle=bad?RED:GREEN;ctx.fill();
+  }
+  ctx.textAlign='right';ctx.font='700 10px '+MONO;ctx.fillStyle=converged?(bad?RED:GREEN):INK;
+  ctx.fillText(converged?(bad?'CONVERGED · local max':'CONVERGED · max found'):('iter '+iter+' · b='+b.toFixed(1)+' · N='+N), w-2, sy+12);
+}
+function ui(){
+  document.getElementById('r_iter').textContent=iter;
+  document.getElementById('r_n').textContent=SX.length;
+  document.getElementById('r_est').textContent=estMax[2].toFixed(3);
+  const err=curErr(); document.getElementById('r_err').textContent=err.toFixed(1);
+  const st=document.getElementById('r_st');
+  st.textContent=converged?'converged':(running?'searching':'paused');
+  st.style.color=converged?(err>BADERR?RED:GREEN):(running?AMBER:DIM);
+  document.getElementById('r_err').style.color=err>BADERR?RED:GREEN;
+  const vd=document.getElementById('verdict');
+  if(converged){ vd.className='verdict show '+(err>BADERR?'no':'ok');
+    vd.innerHTML=err>BADERR
+      ? '✗ Stuck in a <b>local maximum</b> — the swarm got greedy and stopped exploring before finding the true peak. Raise <b>curiosity (b)</b> and hit reset.'
+      : '✓ <b>Found the global maximum.</b> Enough curiosity to escape local peaks, enough greed to home in.';
+  } else { vd.className='verdict'; vd.innerHTML=''; }
+}
+// ---------- loop ----------
+function loop(){
+  T+=0.03;
+  if(running && !converged){
+    let allDone=true;
+    for(let i=0;i<agents.length;i++){const ag=agents[i];
+      if(ag.mv<1){ag.mv=Math.min(1,ag.mv+1/STEPS);const e=ag.mv*ag.mv*(3-2*ag.mv);
+        ag.x=ag.sx+(ag.tx-ag.sx)*e; ag.y=ag.sy+(ag.ty-ag.sy)*e;
+        const tr=trails[i]; if(tr){tr.push([ag.x,ag.y]); if(tr.length>120)tr.shift();}
+        allDone=false;}
+    }
+    if(allDone){ step(); }
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+// ---------- controls ----------
+const sB=document.getElementById('s_b'), sN=document.getElementById('s_n');
+sB.addEventListener('input',()=>{b=parseFloat(sB.value);document.getElementById('l_b').textContent=b.toFixed(1)+' · '+bZone(b);hmDirty=true;
+  if(converged){converged=false; assignTargets(); ui();}});
+sN.addEventListener('input',()=>{N=parseInt(sN.value);document.getElementById('l_n').textContent=N; reset(true);});
+document.getElementById('b_run').addEventListener('click',()=>{running=!running;
+  const el=document.getElementById('b_run'); el.textContent=running?'❚❚ pause':'▶ run'; el.classList.toggle('run',!running); ui();});
+document.getElementById('b_reset').addEventListener('click',()=>{reset(true);});
+document.getElementById('b_new').addEventListener('click',()=>{newField();reset(true);});
+document.getElementById('b_acq').addEventListener('click',()=>{showAcq=!showAcq;document.getElementById('b_acq').classList.toggle('on',showAcq);hmDirty=true;});
+new ResizeObserver(()=>draw()).observe(cv.parentElement);
+newField(); reset(true); requestAnimationFrame(loop);
+</script>
