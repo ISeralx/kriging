@@ -1,65 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Multi-Agent Kriging</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@200;300;400;500;600;700;800&family=Barlow+Semi+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#06070A; --panel:rgba(255,255,255,.025);
-    --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.16);
-    --ink:#EDEFF2; --dim:#8A9099; --dim-2:#5A616B;
-    --amber:#F2A93B; --blue:#5B9CFF; --green:#35C97A; --red:#E5484D; --violet:#8C5BFF;
-    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
-    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --bg:#0a0a0b; --panel:#111113; --panel2:#161618;
+    --txt:#ececee; --dim:#b7b7bd; --muted:#83838b; --faint:#5a5a62;
+    --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.055);
+    --accent:#ff6a2b; --accent-dim:rgba(255,106,43,.14);
+    --good:#63a884; --good-dim:rgba(99,168,132,.13);
+    --bad:#d9785f; --bad-dim:rgba(217,120,95,.13);
+    --cond:"Barlow Semi Condensed","Barlow","Helvetica Neue",Arial,sans-serif;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;
-    -webkit-font-smoothing:antialiased;overflow-x:hidden;
-    background-image:radial-gradient(1100px 560px at 74% -12%,rgba(140,91,255,.06),transparent 60%);}
-  .wrap{max-width:1080px;margin:0 auto;padding:56px 26px 90px}
-  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim);text-align:center}
-  h1{font-weight:600;letter-spacing:-.02em;font-size:clamp(34px,6vw,60px);line-height:1.02;margin:14px 0 0;text-align:center}
-  .lead{color:var(--dim);font-size:16.5px;max-width:64ch;margin:20px auto 0;text-align:center}
-  .lead em{color:var(--violet);font-style:normal} .lead strong{color:var(--ink);font-weight:600}
-  .plain{margin:24px auto 0;padding:17px 20px;border:1px solid var(--line);border-radius:11px;background:linear-gradient(180deg,var(--panel),transparent);
-    font-size:15.5px;color:#C7CBD1;max-width:72ch}
-  .plain b{color:var(--ink);font-weight:600} .plain .hi{color:var(--amber)}
-  .stage{margin-top:30px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(180deg,var(--panel),transparent);overflow:hidden}
-  canvas{display:block;width:100%;touch-action:none;background:#05060a}
-  .verdict{padding:14px 22px;font-family:var(--mono);font-size:13.5px;letter-spacing:.02em;border-top:1px solid var(--line);display:none}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:"Barlow","Helvetica Neue",Arial,sans-serif;font-weight:300;line-height:1.6;
+    -webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+
+  /* atmospheric grain */
+  .glow{position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(ellipse 70% 40% at 50% -12%, rgba(255,106,43,.05), transparent 70%)}
+  .content{position:relative;z-index:1}
+
+  /* TOP BAR */
+  .topbar{position:fixed;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;height:46px;padding:0 32px;
+    border-bottom:1px solid var(--line2);background:rgba(10,10,11,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    font-family:var(--cond);font-size:12px;font-weight:600;letter-spacing:.22em;text-transform:uppercase}
+  .topbar a{color:var(--muted);transition:color .2s;white-space:nowrap}
+  .topbar a:hover{color:var(--accent)}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:124px 32px 70px}
+  @media(max-width:620px){.topbar{padding:0 16px;font-size:11px;letter-spacing:.14em}.wrap{padding:96px 16px 56px}}
+
+  /* HERO */
+  .eyebrow{font-size:12px;letter-spacing:.34em;text-transform:uppercase;color:var(--accent);font-weight:400}
+  h1{font-family:var(--cond);font-weight:800;text-transform:uppercase;font-size:clamp(46px,8.5vw,92px);
+    line-height:.94;letter-spacing:.01em;margin:22px 0 0}
+  .lead{color:var(--dim);font-size:clamp(16px,1.9vw,19px);max-width:64ch;margin:26px 0 0;font-weight:300}
+  .lead em{color:var(--accent);font-style:normal;font-weight:400} .lead strong{color:var(--txt);font-weight:600}
+  .plain{margin:30px 0 0;padding:18px 22px;border:1px solid var(--line);border-left:2px solid var(--accent);border-radius:3px;
+    background:var(--panel);font-size:15.5px;color:var(--dim);max-width:78ch}
+  .plain b{color:var(--txt);font-weight:600} .plain .hi{color:var(--accent)}
+
+  /* math symbols inside uppercase labels keep their case and go italic */
+  .m{text-transform:none;font-style:italic}
+
+  /* STAGE */
+  .stage{margin-top:44px;border:1px solid var(--line);border-radius:4px;background:var(--panel);overflow:hidden}
+  canvas{display:block;width:100%;touch-action:none;background:#0a0a0b}
+  .verdict{padding:14px 22px;font-family:var(--cond);font-weight:600;font-size:14.5px;letter-spacing:.04em;border-top:1px solid var(--line);display:none}
   .verdict.show{display:block}
-  .verdict.ok{color:var(--green)} .verdict.no{color:var(--red)}
-  .readouts{display:flex;flex-wrap:wrap;border-top:1px solid var(--line)}
-  .ro{flex:1 1 110px;padding:13px 18px;border-right:1px solid var(--line)}
-  .ro:last-child{border-right:0}
-  .ro .k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
-  .ro .v{font-family:var(--mono);font-size:19px;margin-top:5px;font-variant-numeric:tabular-nums}
-  .ro .co{font-family:var(--mono);font-size:10.5px;color:var(--dim-2);margin-top:3px;letter-spacing:.02em;font-variant-numeric:tabular-nums}
-  .controls{display:flex;flex-wrap:wrap;gap:20px 30px;padding:20px 22px;border-top:1px solid var(--line);align-items:center}
-  .ctl{display:flex;flex-direction:column;gap:9px;min-width:210px;flex:1 1 210px}
-  .ctl .lab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
-  .ctl .lab b{color:var(--ink);font-weight:600}
-  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:2px;background:var(--line-2);outline:none;border-radius:2px;cursor:pointer}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--ink);border:0;box-shadow:0 0 0 4px rgba(255,255,255,.07);transition:box-shadow .15s}
-  input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 0 7px rgba(140,91,255,.22)}
-  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--ink);border:0}
+  .verdict.ok{color:var(--good);background:var(--good-dim)} .verdict.no{color:var(--bad);background:var(--bad-dim)}
+  .verdict b{font-weight:800}
+  .readouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:1px;background:var(--line2);border-top:1px solid var(--line)}
+  .ro{padding:14px 20px;background:var(--panel);min-width:0}
+  @media(max-width:620px){.readouts{grid-template-columns:1fr 1fr}.ro:last-child{grid-column:1/-1}}
+  .ro .k{font-family:var(--cond);font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+  .ro .v{font-family:var(--cond);font-weight:700;font-size:26px;line-height:1.1;margin-top:6px;letter-spacing:.01em;
+    text-transform:uppercase;font-variant-numeric:tabular-nums}
+  .ro .co{font-family:var(--cond);font-weight:500;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-top:4px;font-variant-numeric:tabular-nums}
+  .controls{display:flex;flex-wrap:wrap;gap:22px 32px;padding:22px 22px;border-top:1px solid var(--line);align-items:center}
+  .ctl{display:flex;flex-direction:column;gap:8px;min-width:200px;flex:1 1 200px}
+  .ctl .lab{display:flex;justify-content:space-between;font-family:var(--cond);font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+  .ctl .lab b{color:var(--txt);font-weight:700}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:2px;background:var(--line);outline:none;border-radius:0;cursor:pointer;margin:8px 0}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:2px;background:var(--accent);border:0;box-shadow:0 0 0 0 rgba(255,106,43,0);transition:box-shadow .15s}
+  input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 0 5px var(--accent-dim)}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:2px;background:var(--accent);border:0}
   .btns{display:flex;gap:10px;flex-wrap:wrap}
-  button.b{font-family:var(--mono);font-size:12px;letter-spacing:.06em;padding:10px 15px;border-radius:9px;border:1px solid var(--line-2);
-    background:transparent;color:var(--ink);cursor:pointer;transition:.15s}
-  button.b:hover{border-color:var(--violet);color:var(--violet)}
-  button.b.run{border-color:var(--green);color:var(--green)}
-  button.b.run:hover{background:rgba(53,201,122,.1)}
-  button.b.on{background:var(--violet);border-color:var(--violet);color:#06070A;font-weight:600}
-  .how{margin-top:30px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+  button.b{font-family:var(--cond);font-weight:600;font-size:12px;letter-spacing:.16em;text-transform:uppercase;padding:11px 16px;border-radius:3px;
+    border:1px solid var(--line);background:transparent;color:var(--txt);cursor:pointer;transition:all .18s}
+  button.b:hover{border-color:var(--accent);color:var(--accent)}
+  button.b.run{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+  button.b.run:hover{background:var(--accent);color:#0a0a0b}
+  button.b.on{background:var(--accent);border-color:var(--accent);color:#0a0a0b;font-weight:700}
+  #b_acq{text-transform:none;font-style:italic;letter-spacing:.06em}
+
+  /* HOW */
+  .how{margin-top:28px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
   @media(max-width:720px){.how{grid-template-columns:1fr}}
-  .how .c{border:1px solid var(--line);border-radius:11px;padding:16px 18px}
-  .how .c h3{font-size:13px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px}
-  .how .c.a h3{color:var(--amber)} .how .c.b h3{color:var(--green)} .how .c.c h3{color:var(--violet)}
-  .how .c p{margin:0;color:var(--dim);font-size:14px} .how .c p b{color:var(--ink);font-weight:600}
-  footer{margin-top:44px;font-family:var(--mono);font-size:12px;color:var(--dim);letter-spacing:.06em;text-align:center}
-  footer a{color:var(--violet)}
+  .how .c{border:1px solid var(--line);border-radius:3px;padding:18px 20px;background:var(--panel)}
+  .how .c h3{font-family:var(--cond);font-size:12px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;margin:0 0 10px;color:var(--accent)}
+  .how .c p{margin:0;color:var(--dim);font-size:14.5px} .how .c p b{color:var(--txt);font-weight:600}
+
+  footer{margin-top:64px;padding:40px 0 0;border-top:1px solid var(--line2);text-align:center;
+    font-family:var(--cond);font-size:12px;font-weight:600;letter-spacing:.3em;text-transform:uppercase;color:var(--faint)}
+  footer a{color:var(--muted);border-bottom:1px solid var(--line);transition:all .2s}
+  footer a:hover{color:var(--accent);border-color:var(--accent)}
+  @media(max-width:620px){footer{letter-spacing:.18em;margin-top:48px}}
   @media (prefers-reduced-motion: reduce){*{transition-duration:.01ms!important}}
 </style>
+</head>
+<body>
+<div class="glow"></div>
 
+<div class="topbar"><a href="https://iseralx.github.io/ISeralx/">&larr; Alejandro Soler &middot; Portfolio</a></div>
+
+<div class="content">
 <div class="wrap">
   <div class="eyebrow">BSc thesis · interactive demo</div>
-  <h1>Multi-Agent Kriging</h1>
+  <h1>Multi-Agent<br>Kriging</h1>
   <p class="lead">A swarm of agents searches an <strong>unknown field</strong> for its global maximum — building a Gaussian-process (Kriging) model as they go, and balancing <em>curiosity</em> against <em>greed</em>. Move the sliders and watch it think.</p>
 
   <div class="plain" id="plain">
@@ -71,18 +118,18 @@
     <div class="verdict" id="verdict"></div>
     <div class="readouts">
       <div class="ro"><div class="k">Iteration</div><div class="v" id="r_iter">0</div><div class="co" id="r_n">0 samples</div></div>
-      <div class="ro"><div class="k">Est. max (μ̂)</div><div class="v" id="r_est" style="color:var(--amber)">—</div><div class="co" id="r_estxy">—</div></div>
-      <div class="ro"><div class="k">True max (hidden)</div><div class="v" id="r_true" style="color:var(--ink)">—</div><div class="co" id="r_truexy">—</div></div>
-      <div class="ro"><div class="k">Position error</div><div class="v" id="r_err" style="color:var(--green)">—</div><div class="co">grid units</div></div>
-      <div class="ro"><div class="k">Status</div><div class="v" id="r_st" style="color:var(--dim)">idle</div></div>
+      <div class="ro"><div class="k">Est. max (<span class="m">μ̂</span>)</div><div class="v" id="r_est" style="color:var(--accent)">—</div><div class="co" id="r_estxy">—</div></div>
+      <div class="ro"><div class="k">True max (hidden)</div><div class="v" id="r_true" style="color:var(--txt)">—</div><div class="co" id="r_truexy">—</div></div>
+      <div class="ro"><div class="k">Position error</div><div class="v" id="r_err" style="color:var(--good)">—</div><div class="co">grid units</div></div>
+      <div class="ro"><div class="k">Status</div><div class="v" id="r_st" style="color:var(--muted)">idle</div></div>
     </div>
     <div class="controls">
       <div class="ctl">
-        <div class="lab"><span>Curiosity&nbsp;·&nbsp;b</span><b id="l_b">2.0 · balanced</b></div>
+        <div class="lab"><span>Curiosity&nbsp;·&nbsp;<span class="m">b</span></span><b id="l_b">2.0 · balanced</b></div>
         <input type="range" id="s_b" min="0" max="3" step="0.1" value="2">
       </div>
       <div class="ctl">
-        <div class="lab"><span>Agents&nbsp;·&nbsp;N</span><b id="l_n">3</b></div>
+        <div class="lab"><span>Agents&nbsp;·&nbsp;<span class="m">N</span></span><b id="l_n">3</b></div>
         <input type="range" id="s_n" min="2" max="8" step="1" value="3">
       </div>
       <div class="btns">
@@ -96,11 +143,12 @@
 
   <div class="how">
     <div class="c a"><h3>Field + agents</h3><p>The true field (hidden from the agents) and the swarm. The dashed ring marks the <b>true global max</b> — where they should end up.</p></div>
-    <div class="c b"><h3>Kriging estimate μ</h3><p>The Gaussian-process reconstruction from the samples. The cross is the <b>estimated</b> max; it snaps to the true peak as evidence accrues.</p></div>
-    <div class="c c"><h3>Uncertainty σ &amp; curiosity</h3><p>Where the model is unsure — it glows unexplored, goes dark where sampled. Raising <b>b</b> pulls agents toward the glow (toggle <b>μ+b·σ</b> to see what they chase).</p></div>
+    <div class="c b"><h3>Kriging estimate <span class="m">μ</span></h3><p>The Gaussian-process reconstruction from the samples. The cross is the <b>estimated</b> max; it snaps to the true peak as evidence accrues.</p></div>
+    <div class="c c"><h3>Uncertainty <span class="m">σ</span> &amp; curiosity</h3><p>Where the model is unsure — it glows unexplored, goes dark where sampled. Raising <b>b</b> pulls agents toward the glow (toggle <b>μ+b·σ</b> to see what they chase).</p></div>
   </div>
 
   <footer>A. Soler Gonzálvez — <a href="https://iseralx.github.io/ISeralx/tfg_soler_multiagent_kriging.pdf" target="_blank">read the thesis (PDF)</a></footer>
+</div>
 </div>
 
 <script>
@@ -108,9 +156,9 @@
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const cv=document.getElementById('cv');
-const MONO='ui-monospace,"SF Mono",Menlo,Consolas,monospace';
-const AMBER='#F2A93B',BLUE='#5B9CFF',GREEN='#35C97A',VIOLET='#8C5BFF',RED='#E5484D',INK='#EDEFF2',DIM='#8A9099',DIM2='#5A616B';
-const ACOL=[AMBER,BLUE,GREEN,VIOLET,RED,'#35C9C9','#F27ABF','#B7F23B'];
+const FONT='"Barlow Semi Condensed","Barlow","Helvetica Neue",Arial,sans-serif';
+const ACC='#ff6a2b',GOOD='#63a884',BAD='#d9785f',INK='#ececee',DIM='#83838b',DIM2='#5a5a62';
+const ACOL=[INK,ACC,GOOD,'#ffc9a8','#b7b7bd',BAD,'#f2d6a0','#8fb8a4'];
 
 const DOM=50, GG=30, GD=150, TH=9.0, NUG=3e-3, NMAX=200, ITMAX=60, STEPS=16, BADERR=3.5;
 const hm=document.createElement('canvas'); let hmDirty=true, lastW=-1;
@@ -207,9 +255,9 @@ function step(){
 }
 
 // ---------- palettes ----------
-const FSTOPS=[[0,10,16,32],[.35,28,58,110],[.6,43,122,143],[.8,53,201,122],[1,242,169,59]];
-const SSTOPS=[[0,8,8,16],[.4,60,40,120],[.7,200,90,60],[1,245,220,150]];
-const ASTOPS=[[0,10,10,26],[.45,50,36,110],[.7,120,80,220],[1,190,150,255]];
+const FSTOPS=[[0,10,10,11],[.3,58,28,20],[.6,150,58,32],[.85,255,106,43],[1,255,206,170]];
+const SSTOPS=[[0,10,10,11],[.4,58,58,64],[.75,160,160,168],[1,236,236,238]];
+const ASTOPS=[[0,10,10,11],[.45,92,78,56],[.75,200,172,120],[1,255,240,210]];
 function lut(stops,v){for(let i=1;i<stops.length;i++){if(v<=stops[i][0]){const a=stops[i-1],b=stops[i],t=(v-a[0])/((b[0]-a[0])||1);
   return [a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t,a[3]+(b[3]-a[3])*t];}}return stops[stops.length-1].slice(1);}
 
@@ -245,16 +293,16 @@ function draw(){
   const FMAX=Math.max(1.3, trueMax[2]);
   let smax=0; for(let i=0;i<SIG.length;i++) if(SIG[i]>smax)smax=SIG[i]; if(smax<1e-3)smax=1;
   if(hmDirty || w!==lastW){ renderHM(w,h,dpr,L,FMAX,smax); hmDirty=false; lastW=w; }
-  ctx.clearRect(0,0,w,h); ctx.fillStyle='#05060a'; ctx.fillRect(0,0,w,h);
+  ctx.clearRect(0,0,w,h); ctx.fillStyle='#0a0a0b'; ctx.fillRect(0,0,w,h);
   ctx.drawImage(hm,0,0,w,h);
   const LAB=['FIELD + AGENTS','KRIGING ESTIMATE μ', showAcq?'ACQUISITION μ+b·σ':'UNCERTAINTY σ'];
   const toPx=(pi,fx,fy)=>[L.PX[pi]+fx/DOM*L.pw, L.top+(1-fy/DOM)*L.panelH];
   // true global-max ring (panel 0)
   const bad=converged && curErr()>BADERR;
   const gm=toPx(0,trueMax[0],trueMax[1]); const pr=bad?(3+Math.sin(T*4)*1.5):0;
-  ctx.strokeStyle=bad?RED:'rgba(255,255,255,.75)';ctx.lineWidth=1.4;ctx.setLineDash([3,3]);
+  ctx.strokeStyle=bad?BAD:'rgba(255,255,255,.75)';ctx.lineWidth=1.4;ctx.setLineDash([3,3]);
   ctx.beginPath();ctx.arc(gm[0],gm[1],7+pr,0,7);ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle=bad?RED:'rgba(255,255,255,.75)';ctx.font='8.5px '+MONO;ctx.textAlign='center';ctx.fillText('global max',gm[0],gm[1]-11-pr);
+  ctx.fillStyle=bad?BAD:'rgba(255,255,255,.75)';ctx.font='600 9px '+FONT;ctx.textAlign='center';ctx.fillText('global max',gm[0],gm[1]-11-pr);
   // trails + agents + targets (panel 0)
   for(let i=0;i<agents.length;i++){
     const tr=trails[i]||[]; ctx.strokeStyle=agents[i].col;ctx.globalAlpha=.3;ctx.lineWidth=1;ctx.beginPath();
@@ -262,29 +310,29 @@ function draw(){
     ctx.stroke();ctx.globalAlpha=1;
     const tg=toPx(0,agents[i].tx,agents[i].ty); ctx.strokeStyle=agents[i].col;ctx.globalAlpha=.5;ctx.lineWidth=1;
     ctx.beginPath();ctx.arc(tg[0],tg[1],3,0,7);ctx.stroke();ctx.globalAlpha=1;
-    const a=toPx(0,agents[i].x,agents[i].y); ctx.beginPath();ctx.arc(a[0],a[1],3.2,0,7);ctx.fillStyle=agents[i].col;ctx.fill();ctx.strokeStyle='#05060a';ctx.lineWidth=1.5;ctx.stroke();
+    const a=toPx(0,agents[i].x,agents[i].y); ctx.beginPath();ctx.arc(a[0],a[1],3.2,0,7);ctx.fillStyle=agents[i].col;ctx.fill();ctx.strokeStyle='#0a0a0b';ctx.lineWidth=1.5;ctx.stroke();
   }
   // estimated-max cross (panel 1)
   const m=toPx(1,estMax[0],estMax[1]); ctx.strokeStyle=INK;ctx.globalAlpha=.9;ctx.lineWidth=1.4;
   ctx.beginPath();ctx.moveTo(m[0]-4,m[1]);ctx.lineTo(m[0]+4,m[1]);ctx.moveTo(m[0],m[1]-4);ctx.lineTo(m[0],m[1]+4);ctx.stroke();ctx.globalAlpha=1;
   // frames + labels
   for(let pi=0;pi<3;pi++){ctx.strokeStyle='rgba(255,255,255,.10)';ctx.lineWidth=1;ctx.strokeRect(L.PX[pi],L.top,L.pw,L.panelH);
-    ctx.fillStyle=DIM;ctx.font='9px '+MONO;ctx.textAlign='left';ctx.fillText(LAB[pi],L.PX[pi]+1,13);}
+    ctx.fillStyle=DIM;ctx.font='600 10px '+FONT;ctx.textAlign='left';ctx.fillText(LAB[pi],L.PX[pi]+1,13);}
   // convergence sparkline (full width strip)
   const sx=L.pad, sy=L.sparkTop, sw=w-2*L.pad, sh=L.sparkH;
   ctx.strokeStyle='rgba(255,255,255,.08)';ctx.strokeRect(sx,sy,sw,sh);
-  ctx.fillStyle=DIM;ctx.font='9px '+MONO;ctx.textAlign='left';ctx.fillText('POSITION ERROR  ↓  (over iterations)',sx+4,sy+12);
+  ctx.fillStyle=DIM;ctx.font='600 10px '+FONT;ctx.textAlign='left';ctx.fillText('POSITION ERROR  ↓  (over iterations)',sx+4,sy+12);
   let emax=BADERR; for(const e of errHist) if(e>emax)emax=e; emax*=1.05;
   const y1=sy+sh-2-(BADERR/emax)*(sh-16); // linea "converge bien"
-  ctx.strokeStyle='rgba(53,201,122,.35)';ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(sx+2,y1);ctx.lineTo(sx+sw-2,y1);ctx.stroke();ctx.setLineDash([]);
+  ctx.strokeStyle='rgba(99,168,132,.35)';ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(sx+2,y1);ctx.lineTo(sx+sw-2,y1);ctx.stroke();ctx.setLineDash([]);
   if(errHist.length>1){
-    ctx.strokeStyle=bad?RED:GREEN;ctx.lineWidth=1.5;ctx.beginPath();
+    ctx.strokeStyle=bad?BAD:GOOD;ctx.lineWidth=1.5;ctx.beginPath();
     for(let i=0;i<errHist.length;i++){const xx=sx+3+i/(errHist.length-1)*(sw-6), yy=sy+sh-2-(errHist[i]/emax)*(sh-16);i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);}
     ctx.stroke();
     const lx=sx+3+(sw-6), ly=sy+sh-2-(errHist[errHist.length-1]/emax)*(sh-16);
-    ctx.beginPath();ctx.arc(lx,ly,2.6,0,7);ctx.fillStyle=bad?RED:GREEN;ctx.fill();
+    ctx.beginPath();ctx.arc(lx,ly,2.6,0,7);ctx.fillStyle=bad?BAD:GOOD;ctx.fill();
   }
-  ctx.textAlign='right';ctx.font='700 10px '+MONO;ctx.fillStyle=converged?(bad?RED:GREEN):INK;
+  ctx.textAlign='right';ctx.font='700 11px '+FONT;ctx.fillStyle=converged?(bad?BAD:GOOD):INK;
   ctx.fillText(converged?(bad?'CONVERGED · local max':'CONVERGED · max found'):('iter '+iter+' · b='+b.toFixed(1)+' · N='+N), w-2, sy+12);
 }
 function ui(){
@@ -297,8 +345,8 @@ function ui(){
   const err=curErr(); document.getElementById('r_err').textContent=err.toFixed(1);
   const st=document.getElementById('r_st');
   st.textContent=converged?'converged':(running?'searching':'paused');
-  st.style.color=converged?(err>BADERR?RED:GREEN):(running?AMBER:DIM);
-  document.getElementById('r_err').style.color=err>BADERR?RED:GREEN;
+  st.style.color=converged?(err>BADERR?BAD:GOOD):(running?ACC:DIM);
+  document.getElementById('r_err').style.color=err>BADERR?BAD:GOOD;
   const vd=document.getElementById('verdict');
   if(converged){ vd.className='verdict show '+(err>BADERR?'no':'ok');
     vd.innerHTML=err>BADERR
@@ -335,3 +383,5 @@ document.getElementById('b_acq').addEventListener('click',()=>{showAcq=!showAcq;
 new ResizeObserver(()=>draw()).observe(cv.parentElement);
 newField(); reset(true); requestAnimationFrame(loop);
 </script>
+</body>
+</html>
