@@ -30,23 +30,24 @@
   .content{position:relative;z-index:1}
 
   /* TOP BAR */
-  .topbar{position:fixed;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;height:46px;padding:0 32px;
+  .topbar{position:fixed;top:0;left:0;right:0;z-index:10;height:46px;
     border-bottom:1px solid var(--line2);background:rgba(10,10,11,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
     font-family:var(--cond);font-size:12px;font-weight:600;letter-spacing:.22em;text-transform:uppercase}
+  .topbar .in{max-width:1080px;margin:0 auto;padding:0 32px;height:100%;display:flex;align-items:center}
   .topbar a{color:var(--muted);transition:color .2s;white-space:nowrap}
   .topbar a:hover{color:var(--accent)}
 
   .wrap{max-width:1080px;margin:0 auto;padding:124px 32px 70px}
-  @media(max-width:620px){.topbar{padding:0 16px;font-size:11px;letter-spacing:.14em}.wrap{padding:96px 16px 56px}}
+  @media(max-width:620px){.topbar{font-size:11px;letter-spacing:.14em}.topbar .in{padding:0 16px}.wrap{padding:96px 16px 56px}}
 
   /* HERO */
   .eyebrow{font-size:12px;letter-spacing:.34em;text-transform:uppercase;color:var(--accent);font-weight:400}
   h1{font-family:var(--cond);font-weight:800;text-transform:uppercase;font-size:clamp(46px,8.5vw,92px);
     line-height:.94;letter-spacing:.01em;margin:22px 0 0}
-  .lead{color:var(--dim);font-size:clamp(16px,1.9vw,19px);max-width:64ch;margin:26px 0 0;font-weight:300}
+  .lead{color:var(--dim);font-size:clamp(16px,1.9vw,19px);max-width:720px;margin:26px 0 0;font-weight:300}
   .lead em{color:var(--accent);font-style:normal;font-weight:400} .lead strong{color:var(--txt);font-weight:600}
   .plain{margin:30px 0 0;padding:18px 22px;border:1px solid var(--line);border-left:2px solid var(--accent);border-radius:3px;
-    background:var(--panel);font-size:15.5px;color:var(--dim);max-width:78ch}
+    background:var(--panel);font-size:15.5px;color:var(--dim);max-width:720px}
   .plain b{color:var(--txt);font-weight:600} .plain .hi{color:var(--accent)}
 
   /* math symbols inside uppercase labels keep their case and go italic */
@@ -90,7 +91,7 @@
   .how .c h3{font-family:var(--cond);font-size:12px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;margin:0 0 10px;color:var(--accent)}
   .how .c p{margin:0;color:var(--dim);font-size:14.5px} .how .c p b{color:var(--txt);font-weight:600}
 
-  footer{margin-top:64px;padding:40px 0 0;border-top:1px solid var(--line2);text-align:center;
+  footer{margin-top:64px;padding:40px 0 0;border-top:1px solid var(--line2);text-align:left;
     font-family:var(--cond);font-size:12px;font-weight:600;letter-spacing:.3em;text-transform:uppercase;color:var(--faint)}
   footer a{color:var(--muted);border-bottom:1px solid var(--line);transition:all .2s}
   footer a:hover{color:var(--accent);border-color:var(--accent)}
@@ -101,7 +102,7 @@
 <body>
 <div class="glow"></div>
 
-<div class="topbar"><a href="https://iseralx.github.io/ISeralx/">&larr; Alejandro Soler &middot; Portfolio</a></div>
+<div class="topbar"><div class="in"><a href="https://iseralx.github.io/ISeralx/">&larr; Alejandro Soler &middot; Portfolio</a></div></div>
 
 <div class="content">
 <div class="wrap">
@@ -256,7 +257,7 @@ function step(){
 
 // ---------- palettes ----------
 const FSTOPS=[[0,10,10,11],[.3,58,28,20],[.6,150,58,32],[.85,255,106,43],[1,255,206,170]];
-const SSTOPS=[[0,10,10,11],[.4,58,58,64],[.75,160,160,168],[1,236,236,238]];
+const SSTOPS=[[0,10,10,11],[.4,46,46,50],[.75,112,112,118],[1,183,183,189]];
 const ASTOPS=[[0,10,10,11],[.45,92,78,56],[.75,200,172,120],[1,255,240,210]];
 function lut(stops,v){for(let i=1;i<stops.length;i++){if(v<=stops[i][0]){const a=stops[i-1],b=stops[i],t=(v-a[0])/((b[0]-a[0])||1);
   return [a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t,a[3]+(b[3]-a[3])*t];}}return stops[stops.length-1].slice(1);}
